@@ -43,13 +43,14 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
   const currentUserRef = useRef(currentUser);
   const anchorPointRef = useRef(anchorPoint);
   
-  // Update refs when state changes
-  useEffect(() => { modeRef.current = mode; }, [mode]);
-  useEffect(() => { activeLineIdRef.current = activeLineId; }, [activeLineId]);
-  useEffect(() => { linesRef.current = lines; }, [lines]);
-  useEffect(() => { targetPosRef.current = targetPos; }, [targetPos]);
-  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
-  useEffect(() => { anchorPointRef.current = anchorPoint; }, [anchorPoint]);
+  // Update refs SYNCHRONOUSLY to avoid race conditions when typing fast
+  // Using assignment before render instead of useEffect (which runs after render)
+  modeRef.current = mode;
+  activeLineIdRef.current = activeLineId;
+  linesRef.current = lines;
+  targetPosRef.current = targetPos;
+  currentUserRef.current = currentUser;
+  anchorPointRef.current = anchorPoint;
 
   // --- Helpers ---
 
@@ -139,6 +140,7 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
       };
       const lineWithChar = { ...newLine, chars: [finalChar] };
       const newLines = [...linesRef.current, lineWithChar];
+      linesRef.current = newLines; // Update ref immediately to prevent race condition
       setLines(newLines);
       addLine(lineWithChar);
       return { newActiveId: newLine.id, newLine: lineWithChar, shouldClearAnchor: true };
@@ -186,6 +188,7 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
     const newLines = linesRef.current.map(l => 
       l.id === currentLineId ? updatedLine : l
     );
+    linesRef.current = newLines; // Update ref immediately to prevent race condition
     setLines(newLines);
     updateLine(updatedLine);
     return { newActiveId: currentLineId };
@@ -269,9 +272,11 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
       if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
         const result = addCharToCanvas(e.key, activeId);
         if (result.newActiveId !== activeId) {
+          activeLineIdRef.current = result.newActiveId; // Update ref immediately
           setActiveLineId(result.newActiveId);
         }
         if (result.shouldClearAnchor) {
+          anchorPointRef.current = null; // Update ref immediately
           setAnchorPoint(null);
         }
       }

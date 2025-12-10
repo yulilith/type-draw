@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import PartySocket from 'partysocket';
 import { User, Line, Point, ClientMessage, ServerMessage } from '../types';
 
-const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999';
+const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'type-draw.yulilith.partykit.dev';
 
 interface UsePartySocketReturn {
   isConnected: boolean;
