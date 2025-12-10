@@ -1,0 +1,5 @@
+{
+  "name": "Type Experiment",
+  "description": "A directed typing experiment where text flows towards your cursor. Control the direction of your thoughts.",
+  "requestFramePermissions": []
+}
