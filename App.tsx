@@ -5,7 +5,7 @@ import { AppMode } from './types';
 
 function App() {
   const [mode, setMode] = useState<AppMode>(AppMode.TYPING);
-  const [isAboutOpen, setIsAboutOpen] = useState(true);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   // If in navigation mode, clicking background doesn't do much, handled in Canvas
   
