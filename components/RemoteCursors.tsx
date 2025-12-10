@@ -8,7 +8,7 @@ interface RemoteCursorsProps {
 export const RemoteCursors: React.FC<RemoteCursorsProps> = ({ users }) => {
   return (
     <>
-      {Object.values(users).map((user) => (
+      {Object.values(users).map((user: User) => (
         <g key={user.id} transform={`translate(${user.cursor.x}, ${user.cursor.y})`}>
           {/* Cursor pointer shape */}
           <path

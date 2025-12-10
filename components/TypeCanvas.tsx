@@ -32,12 +32,16 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
   // The global "cursor" target position (where letters flow towards)
   const [targetPos, setTargetPos] = useState<Point>({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
   
+  // Anchor point - the fixed starting position for a new line (set on click, cleared when typing starts)
+  const [anchorPoint, setAnchorPoint] = useState<Point | null>(null);
+  
   // Using refs for values needed in event listeners to avoid stale closures without frequent re-renders
   const modeRef = useRef(mode);
   const activeLineIdRef = useRef(activeLineId);
   const linesRef = useRef(lines);
   const targetPosRef = useRef(targetPos);
   const currentUserRef = useRef(currentUser);
+  const anchorPointRef = useRef(anchorPoint);
   
   // Update refs when state changes
   useEffect(() => { modeRef.current = mode; }, [mode]);
@@ -45,6 +49,7 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { targetPosRef.current = targetPos; }, [targetPos]);
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+  useEffect(() => { anchorPointRef.current = anchorPoint; }, [anchorPoint]);
 
   // --- Helpers ---
 
@@ -105,8 +110,9 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
   }, [sendCursor]);
 
   // Helper function to add a single character to the canvas
-  const addCharToCanvas = useCallback((charValue: string, activeId: string | null): { newActiveId: string | null; newLine?: Line } => {
+  const addCharToCanvas = useCallback((charValue: string, activeId: string | null): { newActiveId: string | null; newLine?: Line; shouldClearAnchor?: boolean } => {
     const user = currentUserRef.current;
+    const anchor = anchorPointRef.current;
     let currentLineId = activeId;
     let currentLine = linesRef.current.find(l => l.id === currentLineId);
 
@@ -116,9 +122,11 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
       currentLineId = null;
     }
 
-    // If no active line, or active line not found, start a new one at cursor
+    // If no active line, or active line not found, start a new one at anchor point (or cursor if no anchor)
     if (!currentLineId || !currentLine) {
-      const newLine = createLine(targetPosRef.current.x, targetPosRef.current.y);
+      // Use anchor point if set, otherwise fall back to cursor position
+      const startPos = anchor || targetPosRef.current;
+      const newLine = createLine(startPos.x, startPos.y);
       currentLineId = newLine.id;
       currentLine = newLine;
       
@@ -133,7 +141,7 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
       const newLines = [...linesRef.current, lineWithChar];
       setLines(newLines);
       addLine(lineWithChar);
-      return { newActiveId: newLine.id, newLine: lineWithChar };
+      return { newActiveId: newLine.id, newLine: lineWithChar, shouldClearAnchor: true };
     }
 
     // Calculate position for new char
@@ -193,6 +201,7 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
       if (currentMode === AppMode.TYPING) {
         setMode(AppMode.NAVIGATION);
         setActiveLineId(null);
+        setAnchorPoint(null);
         setSelectedLineIds(new Set());
       } else {
         setMode(AppMode.TYPING);
@@ -223,9 +232,10 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
 
     // --- Typing Mode Controls ---
     if (currentMode === AppMode.TYPING) {
-      // Enter: Start new line
+      // Enter: Start new line (clear current line and anchor)
       if (e.key === 'Enter') {
-        setActiveLineId(null); 
+        setActiveLineId(null);
+        setAnchorPoint(null);
         return;
       }
 
@@ -261,6 +271,9 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
         if (result.newActiveId !== activeId) {
           setActiveLineId(result.newActiveId);
         }
+        if (result.shouldClearAnchor) {
+          setAnchorPoint(null);
+        }
       }
     }
   }, [setMode, selectedLineIds, setLines, addLine, updateLine, deleteLines, sendCursor, addCharToCanvas]);
@@ -283,15 +296,22 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
     if (chars.length === 0) return;
     
     let currentActiveId = activeLineIdRef.current;
+    let shouldClearAnchor = false;
     
     // Add each character from the pasted text
     for (const char of chars) {
       const result = addCharToCanvas(char, currentActiveId);
       currentActiveId = result.newActiveId;
+      if (result.shouldClearAnchor) {
+        shouldClearAnchor = true;
+      }
     }
     
     // Update the active line ID to the final state
     setActiveLineId(currentActiveId);
+    if (shouldClearAnchor) {
+      setAnchorPoint(null);
+    }
   }, [addCharToCanvas]); 
 
   // Attach global listeners
@@ -342,14 +362,16 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
         const line = lines.find(l => l.id === lineId);
         if (line && line.userId === currentUser?.id) {
           setActiveLineId(lineId);
+          setAnchorPoint(null); // Clear anchor when continuing an existing line
         }
     }
   };
 
   const handleStageMouseDown = (e: React.MouseEvent) => {
     if (mode === AppMode.TYPING) {
-      // Click on background -> Start new line at this position
+      // Click on background -> Set anchor point for new line
       setActiveLineId(null);
+      setAnchorPoint({ x: e.clientX, y: e.clientY });
       setTargetPos({ x: e.clientX, y: e.clientY });
     } else if (mode === AppMode.NAVIGATION) {
       // Click on background -> Deselect all
@@ -386,6 +408,7 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
     if (line && line.userId === currentUser?.id) {
       setMode(AppMode.TYPING);
       setActiveLineId(lineId);
+      setAnchorPoint(null); // Clear anchor when continuing an existing line
       setSelectedLineIds(new Set());
     }
   };
@@ -486,6 +509,7 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
     }
     
     setActiveLineId(null);
+    setAnchorPoint(null);
     setSelectedLineIds(new Set());
     setShowClearModal(false);
   }, [setLines, deleteLines]);
@@ -499,6 +523,7 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
     }
     
     setActiveLineId(null);
+    setAnchorPoint(null);
     setSelectedLineIds(new Set());
     setShowClearModal(false);
   }, [setLines, deleteLines]);
@@ -540,7 +565,7 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
       onMouseMove={handleStageMouseMove}
     >
       <svg ref={svgRef} className="w-full h-full pointer-events-none">
-        {/* Draw Guide Line in Typing Mode */}
+        {/* Draw Guide Line in Typing Mode - from line head to cursor */}
         {mode === AppMode.TYPING && activeLineId && (
           <line 
             x1={head.x} 
@@ -553,8 +578,46 @@ export const TypeCanvas: React.FC<TypeCanvasProps> = ({ mode, setMode }) => {
           />
         )}
         
-        {/* Target Cursor Indicator - uses user's color */}
-        {mode === AppMode.TYPING && (
+        {/* Guide Line from Anchor to Cursor - shows the path for new line */}
+        {mode === AppMode.TYPING && !activeLineId && anchorPoint && (
+          <line 
+            x1={anchorPoint.x} 
+            y1={anchorPoint.y} 
+            x2={targetPos.x} 
+            y2={targetPos.y} 
+            stroke={currentUser?.color || '#ff0000'} 
+            strokeWidth="1.5" 
+            strokeOpacity="0.3"
+            strokeDasharray="4 4"
+          />
+        )}
+        
+        {/* Anchor Point Indicator - fixed starting point for new line */}
+        {mode === AppMode.TYPING && !activeLineId && anchorPoint && (
+          <g>
+            {/* Small square anchor marker */}
+            <rect 
+              x={anchorPoint.x - 6} 
+              y={anchorPoint.y - 6} 
+              width={12} 
+              height={12} 
+              fill={currentUser?.color || 'orange'}
+              fillOpacity="0.3"
+              stroke={currentUser?.color || 'orange'} 
+              strokeWidth="2"
+            />
+            {/* Center dot */}
+            <circle 
+              cx={anchorPoint.x} 
+              cy={anchorPoint.y} 
+              r={3} 
+              fill={currentUser?.color || 'orange'} 
+            />
+          </g>
+        )}
+        
+        {/* Target Cursor Indicator - shows where typing will go towards */}
+        {mode === AppMode.TYPING && (activeLineId || anchorPoint) && (
           <circle 
             cx={targetPos.x} 
             cy={targetPos.y} 

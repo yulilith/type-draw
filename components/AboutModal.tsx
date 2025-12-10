@@ -31,9 +31,8 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             <li>
               Escape to go into navigation mode where you can
               select, move and delete lines. Double click on a line
-              to edit it
+              to edit it; and right-click on a line to erase it.
             </li>
-            <li>Right-click on a line to erase it</li>
             <li>See other users' cursors and lines on your canvas</li>
             <li>Use the Flow button to start the animation</li>
             <li>Use the Save button to download your canvas as PNG</li>
