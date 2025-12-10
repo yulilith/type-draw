@@ -23,7 +23,7 @@ function App() {
           onClick={() => setIsAboutOpen(true)}
           className="fixed top-4 left-4 z-40 text-sm font-medium hover:underline"
         >
-          About
+          How To Use
         </button>
       )}
     </div>
